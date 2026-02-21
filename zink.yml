@@ -1,0 +1,9 @@
+server:
+  port: 8080
+  host: localhost
+
+services:
+  - name: "user-service"
+    path_prefix: "/api/v1/users/"
+    target:
+      - "http://localhost:8081"
