@@ -1,9 +1,12 @@
 server:
   port: 8080
   host: localhost
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
 
 services:
   - name: "user-service"
-    path_prefix: "/api/v1/users/"
+    path_prefix: "/api/v1/users"
     target:
       - "http://localhost:8081"

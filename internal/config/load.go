@@ -5,8 +5,15 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	defaultRedTimeout   = 15 * time.Second
+	defaultWriteTimeout = 15 * time.Second
+	defaultIdleTimeout  = 60 * time.Second
 )
 
 func Load(filepath string) (*Config, error) {
@@ -26,6 +33,16 @@ func Load(filepath string) (*Config, error) {
 
 	if cfg.Server.Host == "" {
 		cfg.Server.Host = "0.0.0.0"
+	}
+
+	if cfg.Server.ReadTimeout == 0 {
+		cfg.Server.ReadTimeout = defaultRedTimeout
+	}
+	if cfg.Server.WriteTimeout == 0 {
+		cfg.Server.WriteTimeout = defaultWriteTimeout
+	}
+	if cfg.Server.IdleTimeout == 0 {
+		cfg.Server.IdleTimeout = defaultIdleTimeout
 	}
 
 	return &cfg, nil

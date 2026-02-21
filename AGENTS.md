@@ -251,4 +251,5 @@ perfsprint, prealloc, errorlint, errname, nilnil, nilerr, nestif,
 mnd, copyloopvar, gocyclo, gocognit, ireturn, iotamixing, iface,
 godoclint, funcorder, embeddedstructfieldcheck.
 
-Ensure code passes all linters before committing.
+- Always check with "golangci-lint run" if a file has a issue when it's been modify or created.
+- Ensure code passes all linters before committing.
