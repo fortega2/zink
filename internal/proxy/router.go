@@ -40,7 +40,7 @@ func NewRouter(cfg *config.Config) (*Router, error) {
 		if exactPath != "" {
 			mux.Handle(exactPath, http.StripPrefix(exactPath, proxyHandler))
 		}
-		mux.Handle(prefixPath, http.StripPrefix(prefixPath, proxyHandler))
+		mux.Handle(prefixPath, http.StripPrefix(exactPath, proxyHandler))
 	}
 
 	return &Router{mux: mux}, nil

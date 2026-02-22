@@ -3,11 +3,11 @@ package config
 import "time"
 
 type Config struct {
-	Server   serverConfig    `yaml:"server"`
-	Services []serviceConfig `yaml:"services"`
+	Server   ServerConfig    `yaml:"server"`
+	Services []ServiceConfig `yaml:"services"`
 }
 
-type serverConfig struct {
+type ServerConfig struct {
 	Port         int           `yaml:"port"`
 	Host         string        `yaml:"host"`
 	ReadTimeout  time.Duration `yaml:"read_timeout"`
@@ -15,7 +15,7 @@ type serverConfig struct {
 	IdleTimeout  time.Duration `yaml:"idle_timeout"`
 }
 
-type serviceConfig struct {
+type ServiceConfig struct {
 	Name       string   `yaml:"name"`
 	PathPrefix string   `yaml:"path_prefix"`
 	Target     []string `yaml:"target"`
