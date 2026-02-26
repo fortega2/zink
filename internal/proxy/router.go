@@ -13,7 +13,7 @@ import (
 	"github.com/fortega2/zink/internal/config"
 )
 
-const defaultTimeout = 10 * time.Second
+const defaultTimeout = 5 * time.Second
 
 type Router struct {
 	mux *http.ServeMux
@@ -58,6 +58,12 @@ func createProxy(targets []*url.URL) http.Handler {
 			idx := atomic.AddUint64(&current, 1) % uint64(len(targets))
 			target := targets[idx]
 
+			if target.Scheme != "http" && target.Scheme != "https" {
+				req.URL.Scheme = ""
+				req.URL.Host = ""
+				return
+			}
+
 			req.URL.Scheme = target.Scheme
 			req.URL.Host = target.Host
 			req.Host = target.Host
@@ -72,6 +78,6 @@ func createProxy(targets []*url.URL) http.Handler {
 		defer cancel()
 
 		reqWithCtx := req.WithContext(ctx)
-		proxy.ServeHTTP(w, reqWithCtx)
+		proxy.ServeHTTP(w, reqWithCtx) //nolint:gosec // G704: targets are fixed from config, SSRF is not applicable for a reverse proxy
 	})
 }

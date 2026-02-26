@@ -19,7 +19,7 @@ func setupMockBackend(t *testing.T, name string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := fmt.Sprintf("%s received path: %s", name, r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		_, err := w.Write([]byte(response))
+		_, err := w.Write([]byte(response)) //nolint:gosec // G705: test-only mock backend, not production code
 		assert.NoError(t, err)
 	}))
 }

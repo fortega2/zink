@@ -2,13 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 
 	"github.com/fortega2/zink/internal/config"
 	"github.com/fortega2/zink/internal/proxy"
+	"github.com/fortega2/zink/internal/server"
 )
 
 func main() {
@@ -24,10 +23,10 @@ func main() {
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		logger.Error("failed to load configuration", "error", err)
-		os.Exit(1)
+		return
 	}
 
-	logger.Info("configuration loaded successfully", "port", cfg.Server.Port, "host", cfg.Server.Host)
+	logger.Info("configuration loaded successfully", "host", cfg.Server.Host, "port", cfg.Server.Port)
 
 	for _, svc := range cfg.Services {
 		logger.Info("service registered", "name", svc.Name, "path_prefix", svc.PathPrefix, "targets", len(svc.Target))
@@ -36,22 +35,17 @@ func main() {
 	router, err := proxy.NewRouter(cfg)
 	if err != nil {
 		logger.Error("failed to initialize router", "error", err)
-		os.Exit(1)
+		return
 	}
 
-	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	logger.Info("zink Gateway is running", "address", addr)
-
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      router,
+	srvConfig := server.Config{
+		Host:         cfg.Server.Host,
+		Port:         cfg.Server.Port,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
-
-	if err := srv.ListenAndServe(); err != nil {
-		logger.Error("server crashed", "error", err)
-		os.Exit(1)
+	if err := server.Start(srvConfig, router, logger); err != nil {
+		logger.Error("server error", "error", err)
 	}
 }

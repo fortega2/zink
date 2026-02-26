@@ -10,3 +10,4 @@ services:
     path_prefix: "/api/v1/users"
     target:
       - "http://localhost:8081"
+      - "http://localhost:8082"

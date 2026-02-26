@@ -58,21 +58,42 @@ func validate(cfg *Config) error {
 	}
 
 	for i, svc := range cfg.Services {
-		if svc.Name == "" {
-			return fmt.Errorf("service at index %d is missing name", i)
+		if err := validateService(i, svc); err != nil {
+			return err
 		}
-		if svc.PathPrefix == "" {
-			return fmt.Errorf("service '%s' is missing path_prefix", svc.Name)
-		}
-		if len(svc.Target) == 0 {
-			return fmt.Errorf("service '%s' must have at least one target", svc.Name)
-		}
+	}
 
-		for j, targetURL := range svc.Target {
-			if _, err := url.ParseRequestURI(targetURL); err != nil {
-				return fmt.Errorf("invalid target URL '%s' in service '%s' (index %d): %w", targetURL, svc.Name, j, err)
-			}
+	return nil
+}
+
+func validateService(i int, svc ServiceConfig) error {
+	if svc.Name == "" {
+		return fmt.Errorf("service at index %d is missing name", i)
+	}
+	if svc.PathPrefix == "" {
+		return fmt.Errorf("service '%s' is missing path_prefix", svc.Name)
+	}
+	if len(svc.Target) == 0 {
+		return fmt.Errorf("service '%s' must have at least one target", svc.Name)
+	}
+
+	for j, targetURL := range svc.Target {
+		if err := validateTargetURL(svc.Name, j, targetURL); err != nil {
+			return err
 		}
+	}
+
+	return nil
+}
+
+func validateTargetURL(svcName string, j int, targetURL string) error {
+	parsed, err := url.ParseRequestURI(targetURL)
+	if err != nil {
+		return fmt.Errorf("invalid target URL '%s' in service '%s' (index %d): %w", targetURL, svcName, j, err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("target URL '%s' in service '%s' (index %d) has unsupported scheme '%s': only http and https are allowed",
+			targetURL, svcName, j, parsed.Scheme)
 	}
 
 	return nil
