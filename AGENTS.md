@@ -181,6 +181,7 @@ type Config struct {
 - Use subtests for related test cases: `t.Run("test case name", func(t *testing.T) {...})`
 - Tests must be independent of each other
 - Prefer table-driven tests when there are multiple input/output cases
+- Test names should be formatted with Pascal case "TestName()"
 
 ```go
 func TestLoad(t *testing.T) {

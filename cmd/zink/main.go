@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/fortega2/zink/internal/config"
+	"github.com/fortega2/zink/internal/middleware"
 	"github.com/fortega2/zink/internal/proxy"
 	"github.com/fortega2/zink/internal/server"
 )
@@ -37,6 +38,8 @@ func main() {
 		logger.Error("failed to initialize router", "error", err)
 		return
 	}
+
+	router.Use(middleware.Logging(logger))
 
 	srvConfig := server.Config{
 		Host:         cfg.Server.Host,

@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/fortega2/zink/internal/config"
+	"github.com/fortega2/zink/internal/middleware"
 )
 
 const defaultTimeout = 5 * time.Second
 
 type Router struct {
-	mux *http.ServeMux
+	mux     *http.ServeMux
+	handler http.Handler
 }
 
 func NewRouter(cfg *config.Config) (*Router, error) {
@@ -43,11 +45,15 @@ func NewRouter(cfg *config.Config) (*Router, error) {
 		mux.Handle(prefixPath, http.StripPrefix(exactPath, proxyHandler))
 	}
 
-	return &Router{mux: mux}, nil
+	return &Router{mux: mux, handler: mux}, nil
+}
+
+func (r *Router) Use(m ...middleware.Middleware) {
+	r.handler = middleware.Chain(r.mux, m...)
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	r.mux.ServeHTTP(w, req)
+	r.handler.ServeHTTP(w, req)
 }
 
 func createProxy(targets []*url.URL) http.Handler {
