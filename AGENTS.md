@@ -65,6 +65,7 @@ Pre-commit hooks run in parallel:
 - Maximum lines per function: linter guideline (gocyclo: 15 recommended)
 - Maximum cyclomatic complexity: linter guideline (gocognit: 30)
 - Avoid files larger than 300 lines when possible
+- Never write comments in code
 
 ### Imports
 

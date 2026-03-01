@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/fortega2/zink/internal/config"
 )
 
 const (
@@ -154,6 +156,46 @@ func TestRoundRobinMixedSchemes(t *testing.T) {
 	if req2.URL.Scheme != testSchemeHTTP || req2.URL.Host != testBackend1 {
 		t.Errorf("second request: got %s://%s, want %s://%s",
 			req2.URL.Scheme, req2.URL.Host, testSchemeHTTP, testBackend1)
+	}
+}
+
+func TestNewDirectorRoundRobin(t *testing.T) {
+	target1, _ := url.Parse(testSchemeHTTP + "://" + testBackend1)
+	target2, _ := url.Parse(testSchemeHTTP + "://" + testBackend2)
+	targets := []*url.URL{target1, target2}
+
+	director, err := NewDirector(config.LoadBalancerRoundRobin, targets)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
+	director(req)
+
+	if req.URL.Host != testBackend2 {
+		t.Errorf(testErrHostFormat, req.URL.Host, testBackend2)
+	}
+}
+
+func TestNewDirectorUnknownType(t *testing.T) {
+	target, _ := url.Parse(testSchemeHTTP + "://" + testBackend1)
+	targets := []*url.URL{target}
+
+	tests := []struct {
+		name   string
+		lbType config.LoadBalancer
+	}{
+		{"empty string", ""},
+		{"unknown type", "random"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewDirector(tt.lbType, targets)
+			if err == nil {
+				t.Errorf("expected error for load_balancer %q, got nil", tt.lbType)
+			}
+		})
 	}
 }
 

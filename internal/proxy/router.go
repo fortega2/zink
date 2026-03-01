@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -20,7 +21,7 @@ type Router struct {
 	handler http.Handler
 }
 
-func NewRouter(cfg *config.Config) (*Router, error) {
+func NewRouter(cfg *config.Config, logger *slog.Logger) (*Router, error) {
 	mux := http.NewServeMux()
 
 	for _, svc := range cfg.Services {
@@ -33,7 +34,16 @@ func NewRouter(cfg *config.Config) (*Router, error) {
 			targets = append(targets, u)
 		}
 
-		proxyHandler := createProxy(targets)
+		lbType := svc.LoadBalancer
+		if lbType == "" {
+			logger.Warn("load_balancer not set, defaulting to round_robin", "service", svc.Name)
+			lbType = config.LoadBalancerRoundRobin
+		}
+
+		proxyHandler, err := createProxy(targets, lbType)
+		if err != nil {
+			return nil, fmt.Errorf("service '%s': %w", svc.Name, err)
+		}
 
 		exactPath := strings.TrimSuffix(svc.PathPrefix, "/")
 		prefixPath := exactPath + "/"
@@ -55,9 +65,14 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-func createProxy(targets []*url.URL) http.Handler {
+func createProxy(targets []*url.URL, lbType config.LoadBalancer) (http.Handler, error) {
+	director, err := NewDirector(lbType, targets)
+	if err != nil {
+		return nil, err
+	}
+
 	proxy := &httputil.ReverseProxy{
-		Director: roundRobin(targets),
+		Director: director,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, _ error) {
 			w.WriteHeader(http.StatusBadGateway)
 		},
@@ -69,5 +84,5 @@ func createProxy(targets []*url.URL) http.Handler {
 
 		reqWithCtx := req.WithContext(ctx)
 		proxy.ServeHTTP(w, reqWithCtx) //nolint:gosec // G704: targets are fixed from config, SSRF is not applicable for a reverse proxy
-	})
+	}), nil
 }

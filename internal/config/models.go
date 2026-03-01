@@ -2,6 +2,12 @@ package config
 
 import "time"
 
+type LoadBalancer string
+
+const (
+	LoadBalancerRoundRobin LoadBalancer = "round_robin"
+)
+
 type Config struct {
 	Server   ServerConfig    `yaml:"server"`
 	Services []ServiceConfig `yaml:"services"`
@@ -16,7 +22,8 @@ type ServerConfig struct {
 }
 
 type ServiceConfig struct {
-	Name       string   `yaml:"name"`
-	PathPrefix string   `yaml:"path_prefix"`
-	Target     []string `yaml:"target"`
+	Name         string       `yaml:"name"`
+	PathPrefix   string       `yaml:"path_prefix"`
+	Target       []string     `yaml:"target"`
+	LoadBalancer LoadBalancer `yaml:"load_balancer"`
 }

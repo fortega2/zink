@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var logger = slog.New(slog.DiscardHandler)
 
 func setupMockBackend(t *testing.T, name string) *httptest.Server {
 	t.Helper()
@@ -50,7 +53,7 @@ func TestRouterRouting(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg)
+	router, err := NewRouter(cfg, logger)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -128,7 +131,7 @@ func TestRouterRoundRobin(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg)
+	router, err := NewRouter(cfg, logger)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -172,7 +175,7 @@ func TestRouterInvalidTargetURL(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg)
+	router, err := NewRouter(cfg, logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid target URL")
 	assert.Nil(t, router)

@@ -33,7 +33,7 @@ func main() {
 		logger.Info("service registered", "name", svc.Name, "path_prefix", svc.PathPrefix, "targets", len(svc.Target))
 	}
 
-	router, err := proxy.NewRouter(cfg)
+	router, err := proxy.NewRouter(cfg, logger)
 	if err != nil {
 		logger.Error("failed to initialize router", "error", err)
 		return

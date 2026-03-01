@@ -1,10 +1,22 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"sync/atomic"
+
+	"github.com/fortega2/zink/internal/config"
 )
+
+func NewDirector(lbType config.LoadBalancer, targets []*url.URL) (func(*http.Request), error) {
+	switch lbType {
+	case config.LoadBalancerRoundRobin:
+		return roundRobin(targets), nil
+	default:
+		return nil, fmt.Errorf("unknown load_balancer type %q for service", lbType)
+	}
+}
 
 func roundRobin(targets []*url.URL) func(*http.Request) {
 	var current uint64

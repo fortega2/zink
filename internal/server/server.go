@@ -34,7 +34,7 @@ func Start(config Config, handler http.Handler, logger *slog.Logger) error {
 	cxt, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	logger.Info("starting server", "address", addr)
+	logger.Info("starting server", "host", config.Host, "port", config.Port)
 
 	serverErr := make(chan error, 1)
 	go func() {

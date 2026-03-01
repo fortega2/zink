@@ -8,6 +8,7 @@ server:
 services:
   - name: "user-service"
     path_prefix: "/api/v1/users"
+    load_balancer: "round_robin"
     target:
       - "http://localhost:8081"
       - "http://localhost:8082"
