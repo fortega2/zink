@@ -66,6 +66,8 @@ Pre-commit hooks run in parallel:
 - Maximum cyclomatic complexity: linter guideline (gocognit: 30)
 - Avoid files larger than 300 lines when possible
 - Never write comments in code
+- The application logger uses `slog.NewJSONHandler` writing to stdout at `slog.LevelDebug`
+- Tests use `slog.New(slog.DiscardHandler)` to silence logging output (Go 1.24+ feature)
 
 ### Imports
 
@@ -183,6 +185,7 @@ type Config struct {
 - Tests must be independent of each other
 - Prefer table-driven tests when there are multiple input/output cases
 - Test names should be formatted with Pascal case "TestName()"
+- Use `github.com/stretchr/testify` for assertions: `assert` for non-fatal checks and `require` for checks that should abort the test immediately if they fail
 
 ```go
 func TestLoad(t *testing.T) {
@@ -211,14 +214,17 @@ func TestLoad(t *testing.T) {
 zink/
 ├── cmd/zink/           # Application entry point
 │   └── main.go
+├── docker/             # Container build files
+│   └── Dockerfile      # Multi-stage build (golang:1.26.0-alpine3.23 → scratch)
 ├── internal/           # Private packages (not externally importable)
 │   ├── config/         # YAML configuration loading and validation
-│   ├── proxy/         # Reverse proxy logic
-│   └── middleware/    # Middlewares (auth, rate limiting, logging)
+│   ├── middleware/     # Middlewares (logging; extensible for auth, rate limiting)
+│   ├── proxy/          # Reverse proxy logic and load balancing
+│   └── server/         # HTTP server lifecycle and graceful shutdown
 ├── zink.yml           # Example configuration file
 ├── go.mod
 ├── go.sum
-├── .golangci.yml      # Linter configuration
+├── .golangci.yml      # Linter configuration (golangci-lint v2)
 ├── lefthook.yml       # Pre-commit hooks configuration
 └── AGENTS.md          # This file
 ```
@@ -229,14 +235,22 @@ zink/
 
 - Default configuration file is `zink.yml` in the current directory
 - Support `--config` flag to specify custom path
-- Default port is 80 if not specified (or 8080 for development)
+- Port is required — a missing or zero port causes a startup error
+- Default host is `0.0.0.0` if not specified
+- Default timeouts: `read_timeout: 15s`, `write_timeout: 15s`, `idle_timeout: 60s`
 
 ### Proxy and Routing
 
 - Use `net/http/httputil.NewSingleHostReverseProxy` as base
 - Implement an `http.Handler` that acts as a router (multiplexer)
 - Route matching should be by exact prefix for this version
-- Support multiple backends per service (round-robin balancing in future phases)
+- Round-robin load balancing is fully implemented. Configure with `load_balancer: round_robin` in each service. If omitted, the router defaults to `round_robin` and logs a warning. The field accepts the string `"round_robin"` (constant `config.LoadBalancerRoundRobin`)
+- Each proxied request is wrapped with a `context.WithTimeout` of 5 seconds (`defaultTimeout` constant in `proxy/router.go`). Backends that do not respond within this window receive a `502 Bad Gateway`
+
+### Server
+
+- The server supports graceful shutdown triggered by SIGINT or SIGTERM
+- On receiving a signal, the server stops accepting new connections and waits up to 5 seconds for in-flight requests to complete (`shutdownServerTimeout` in `server/server.go`)
 
 ### Middlewares
 
@@ -244,14 +258,20 @@ zink/
 - Include a structured logger (slog) by default in all requests
 - Validate auth and rate limiting configuration at load time, not per request
 
+### Docker
+
+- A `Dockerfile` is provided in `docker/Dockerfile`
+- Uses a multi-stage build: builder stage on `golang:1.26.0-alpine3.23`, final image is `scratch`
+- Build: `docker build -f docker/Dockerfile -t zink .`
+
 ## 5. Enabled Linters (Reference)
 
-The project uses golangci-lint with the following rules enabled, among others:
+The project uses golangci-lint v2 (`version: "2"` in `.golangci.yml`) with the following rules enabled, among others:
 gosec, bodyclose, noctx, revive, gocritic, misspell, whitespace,
 unconvert, tagalign, predeclared, modernize, sloglint, usestdlibvars,
 perfsprint, prealloc, errorlint, errname, nilnil, nilerr, nestif,
 mnd, copyloopvar, gocyclo, gocognit, ireturn, iotamixing, iface,
-godoclint, funcorder, embeddedstructfieldcheck.
+godoclint, funcorder, embeddedstructfieldcheck, unqueryvet.
 
 - Always check with "golangci-lint run" if a file has a issue when it's been modify or created.
 - Ensure code passes all linters before committing.
