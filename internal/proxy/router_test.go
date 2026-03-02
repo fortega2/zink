@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -53,7 +54,7 @@ func TestRouterRouting(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -131,7 +132,7 @@ func TestRouterRoundRobin(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -175,7 +176,7 @@ func TestRouterInvalidTargetURL(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid target URL")
 	assert.Nil(t, router)

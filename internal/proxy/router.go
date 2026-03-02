@@ -21,7 +21,7 @@ type Router struct {
 	handler http.Handler
 }
 
-func NewRouter(cfg *config.Config, logger *slog.Logger) (*Router, error) {
+func NewRouter(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Router, error) {
 	mux := http.NewServeMux()
 
 	for _, svc := range cfg.Services {
@@ -45,13 +45,18 @@ func NewRouter(cfg *config.Config, logger *slog.Logger) (*Router, error) {
 			return nil, fmt.Errorf("service '%s': %w", svc.Name, err)
 		}
 
+		svcHandler := proxyHandler
+		if svc.RateLimit.Enabled {
+			svcHandler = middleware.Chain(svcHandler, middleware.RateLimit(ctx, svc.RateLimit))
+		}
+
 		exactPath := strings.TrimSuffix(svc.PathPrefix, "/")
 		prefixPath := exactPath + "/"
 
 		if exactPath != "" {
-			mux.Handle(exactPath, http.StripPrefix(exactPath, proxyHandler))
+			mux.Handle(exactPath, http.StripPrefix(exactPath, svcHandler))
 		}
-		mux.Handle(prefixPath, http.StripPrefix(exactPath, proxyHandler))
+		mux.Handle(prefixPath, http.StripPrefix(exactPath, svcHandler))
 	}
 
 	return &Router{mux: mux, handler: mux}, nil

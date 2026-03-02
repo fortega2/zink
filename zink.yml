@@ -9,6 +9,10 @@ services:
   - name: "user-service"
     path_prefix: "/api/v1/users"
     load_balancer: "round_robin"
+    rate_limit:
+      enabled: true
+      rate: 10
+      burst: 20
     target:
       - "http://localhost:8081"
       - "http://localhost:8082"

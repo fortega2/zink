@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log/slog"
 	"os"
@@ -33,7 +34,10 @@ func main() {
 		logger.Info("service registered", "name", svc.Name, "path_prefix", svc.PathPrefix, "targets", len(svc.Target))
 	}
 
-	router, err := proxy.NewRouter(cfg, logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	router, err := proxy.NewRouter(ctx, cfg, logger)
 	if err != nil {
 		logger.Error("failed to initialize router", "error", err)
 		return

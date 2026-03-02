@@ -21,9 +21,16 @@ type ServerConfig struct {
 	IdleTimeout  time.Duration `yaml:"idle_timeout"`
 }
 
+type RateLimitConfig struct {
+	Rate    float64 `yaml:"rate"`
+	Burst   int     `yaml:"burst"`
+	Enabled bool    `yaml:"enabled"`
+}
+
 type ServiceConfig struct {
-	Name         string       `yaml:"name"`
-	PathPrefix   string       `yaml:"path_prefix"`
-	Target       []string     `yaml:"target"`
-	LoadBalancer LoadBalancer `yaml:"load_balancer"`
+	LoadBalancer LoadBalancer    `yaml:"load_balancer"`
+	RateLimit    RateLimitConfig `yaml:"rate_limit"`
+	Target       []string        `yaml:"target"`
+	Name         string          `yaml:"name"`
+	PathPrefix   string          `yaml:"path_prefix"`
 }
