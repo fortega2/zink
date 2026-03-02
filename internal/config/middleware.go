@@ -1,0 +1,41 @@
+package config
+
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
+
+type MiddlewareType string
+
+const (
+	MiddlewareRateLimit MiddlewareType = "rate_limit"
+)
+
+type Middleware struct {
+	Type MiddlewareType `yaml:"type"`
+}
+
+type MiddlewareConfig struct {
+	Value any
+}
+
+func (m *MiddlewareConfig) UnmarshalYAML(value *yaml.Node) error {
+	var base Middleware
+	if err := value.Decode(&base); err != nil {
+		return fmt.Errorf("failed to decode middleware type: %w", err)
+	}
+
+	switch base.Type {
+	case MiddlewareRateLimit:
+		var rl RateLimitMiddleware
+		if err := value.Decode(&rl); err != nil {
+			return fmt.Errorf("failed to decode rate_limit middleware: %w", err)
+		}
+		m.Value = rl
+	default:
+		return fmt.Errorf("unknown middleware type: %q", base.Type)
+	}
+
+	return nil
+}
