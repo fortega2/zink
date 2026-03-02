@@ -25,13 +25,9 @@ func NewRouter(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*R
 	mux := http.NewServeMux()
 
 	for _, svc := range cfg.Services {
-		targets := make([]*url.URL, 0, len(svc.Target))
-		for _, targetStr := range svc.Target {
-			u, err := url.ParseRequestURI(targetStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid target URL '%s' for service '%s': %w", targetStr, svc.Name, err)
-			}
-			targets = append(targets, u)
+		targets, err := parseServiceTargets(svc.Target, svc.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		lbType := svc.LoadBalancer
@@ -45,10 +41,7 @@ func NewRouter(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*R
 			return nil, fmt.Errorf("service '%s': %w", svc.Name, err)
 		}
 
-		svcHandler := proxyHandler
-		if svc.RateLimit.Enabled {
-			svcHandler = middleware.Chain(svcHandler, middleware.RateLimit(ctx, svc.RateLimit))
-		}
+		svcHandler := applyServiceMiddlewares(ctx, proxyHandler, svc.Middlewares)
 
 		exactPath := strings.TrimSuffix(svc.PathPrefix, "/")
 		prefixPath := exactPath + "/"
@@ -60,6 +53,27 @@ func NewRouter(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*R
 	}
 
 	return &Router{mux: mux, handler: mux}, nil
+}
+
+func parseServiceTargets(targetStrs []string, svcName string) ([]*url.URL, error) {
+	targets := make([]*url.URL, 0, len(targetStrs))
+	for _, targetStr := range targetStrs {
+		u, err := url.ParseRequestURI(targetStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid target URL '%s' for service '%s': %w", targetStr, svcName, err)
+		}
+		targets = append(targets, u)
+	}
+	return targets, nil
+}
+
+func applyServiceMiddlewares(ctx context.Context, h http.Handler, mws []config.MiddlewareConfig) http.Handler {
+	for _, mw := range mws {
+		if cfg, ok := mw.Value.(config.RateLimitMiddleware); ok {
+			h = middleware.Chain(h, middleware.RateLimit(ctx, cfg.Rate, cfg.Burst))
+		}
+	}
+	return h
 }
 
 func (r *Router) Use(m ...middleware.Middleware) {

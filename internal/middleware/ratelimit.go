@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
-
-	"github.com/fortega2/zink/internal/config"
 )
 
 const (
@@ -27,11 +25,12 @@ type rateLimitClient struct {
 type rateLimiter struct {
 	mu      sync.Mutex
 	clients map[string]*rateLimitClient
-	cfg     config.RateLimitConfig
+	rate    float64
+	burst   int
 }
 
-func RateLimit(ctx context.Context, cfg config.RateLimitConfig) Middleware {
-	rl := newRateLimiter(ctx, cfg)
+func RateLimit(ctx context.Context, rate float64, burst int) Middleware {
+	rl := newRateLimiter(ctx, rate, burst)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +54,11 @@ func RateLimit(ctx context.Context, cfg config.RateLimitConfig) Middleware {
 	}
 }
 
-func newRateLimiter(ctx context.Context, cfg config.RateLimitConfig) *rateLimiter {
+func newRateLimiter(ctx context.Context, rate float64, burst int) *rateLimiter {
 	rl := &rateLimiter{
 		clients: make(map[string]*rateLimitClient),
-		cfg:     cfg,
+		rate:    rate,
+		burst:   burst,
 	}
 	go rl.cleanupLoop(ctx)
 	return rl
@@ -71,7 +71,7 @@ func (rl *rateLimiter) getLimiter(ip string) *rate.Limiter {
 	client, ok := rl.clients[ip]
 	if !ok {
 		client = &rateLimitClient{
-			limiter:  rate.NewLimiter(rate.Limit(rl.cfg.Rate), rl.cfg.Burst),
+			limiter:  rate.NewLimiter(rate.Limit(rl.rate), rl.burst),
 			lastSeen: time.Now(),
 		}
 		rl.clients[ip] = client

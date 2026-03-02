@@ -83,22 +83,23 @@ func validateService(i int, svc ServiceConfig) error {
 		}
 	}
 
-	if err := validateRateLimit(svc.Name, svc.RateLimit); err != nil {
+	if err := validateMiddlewares(svc.Name, svc.Middlewares); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func validateRateLimit(svcName string, rl RateLimitConfig) error {
-	if !rl.Enabled {
-		return nil
-	}
-	if rl.Rate <= 0 {
-		return fmt.Errorf("service '%s': rate_limit.rate must be greater than 0 when enabled", svcName)
-	}
-	if rl.Burst <= 0 {
-		return fmt.Errorf("service '%s': rate_limit.burst must be greater than 0 when enabled", svcName)
+func validateMiddlewares(svcName string, middlewares []MiddlewareConfig) error {
+	for _, mw := range middlewares {
+		if cfg, ok := mw.Value.(RateLimitMiddleware); ok {
+			if cfg.Rate <= 0 {
+				return fmt.Errorf("service '%s': rate_limit.rate must be greater than 0", svcName)
+			}
+			if cfg.Burst <= 0 {
+				return fmt.Errorf("service '%s': rate_limit.burst must be greater than 0", svcName)
+			}
+		}
 	}
 	return nil
 }

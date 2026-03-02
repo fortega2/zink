@@ -10,15 +10,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/fortega2/zink/internal/config"
 )
 
 const fakeRemoteAddr = "1.2.3.4:1234"
 
 func TestRateLimitAlwaysEnforces(t *testing.T) {
-	cfg := config.RateLimitConfig{Rate: 1, Burst: 1}
-	handler := RateLimit(t.Context(), cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(t.Context(), 1, 1)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -36,8 +33,7 @@ func TestRateLimitAlwaysEnforces(t *testing.T) {
 }
 
 func TestRateLimitAllowsUnderLimit(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 100, Burst: 10}
-	handler := RateLimit(t.Context(), cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(t.Context(), 100, 10)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -51,8 +47,7 @@ func TestRateLimitAllowsUnderLimit(t *testing.T) {
 }
 
 func TestRateLimitRejectsOverBurst(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 1, Burst: 3}
-	handler := RateLimit(t.Context(), cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(t.Context(), 1, 3)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -76,8 +71,7 @@ func TestRateLimitRejectsOverBurst(t *testing.T) {
 }
 
 func TestRateLimitIsolatesClients(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 1, Burst: 1}
-	handler := RateLimit(t.Context(), cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(t.Context(), 1, 1)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -100,8 +94,7 @@ func TestRateLimitIsolatesClients(t *testing.T) {
 }
 
 func TestRateLimitInvalidRemoteAddr(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 100, Burst: 5}
-	handler := RateLimit(t.Context(), cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := RateLimit(t.Context(), 100, 5)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -115,13 +108,12 @@ func TestRateLimitInvalidRemoteAddr(t *testing.T) {
 }
 
 func TestRateLimitIntegrationWithChain(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 1, Burst: 2}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/test", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	handler := Chain(mux, RateLimit(t.Context(), cfg))
+	handler := Chain(mux, RateLimit(t.Context(), 1, 2))
 
 	for i, wantStatus := range []int{http.StatusAccepted, http.StatusAccepted, http.StatusTooManyRequests} {
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -133,11 +125,10 @@ func TestRateLimitIntegrationWithChain(t *testing.T) {
 }
 
 func TestRateLimitCleanupStopsOnContextCancel(t *testing.T) {
-	cfg := config.RateLimitConfig{Enabled: true, Rate: 100, Burst: 10}
 	ctx, cancel := context.WithCancel(context.Background())
 
 	goroutinesBefore := runtime.NumGoroutine()
-	_ = newRateLimiter(ctx, cfg)
+	_ = newRateLimiter(ctx, 100, 10)
 
 	goroutinesAfterSpawn := runtime.NumGoroutine()
 	assert.Greater(t, goroutinesAfterSpawn, goroutinesBefore, "cleanupLoop goroutine should have been spawned")

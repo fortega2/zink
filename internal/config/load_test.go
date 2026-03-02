@@ -143,6 +143,82 @@ services:
 			wantErr:     true,
 			errContains: "failed to decode YAML",
 		},
+		{
+			name: "Valid configuration with rate_limit middleware",
+			yamlContent: `
+server:
+  port: 8080
+services:
+  - name: "svc"
+    path_prefix: "/api"
+    target:
+      - "http://backend"
+    middlewares:
+      - type: rate_limit
+        rate: 10
+        burst: 20
+`,
+			wantErr: false,
+			checkConfig: func(t *testing.T, cfg *Config) {
+				require.Len(t, cfg.Services[0].Middlewares, 1)
+				rl, ok := cfg.Services[0].Middlewares[0].Value.(RateLimitMiddleware)
+				require.True(t, ok)
+				assert.Equal(t, float64(10), rl.Rate)
+				assert.Equal(t, 20, rl.Burst)
+			},
+		},
+		{
+			name: "Invalid rate_limit middleware: rate is zero",
+			yamlContent: `
+server:
+  port: 8080
+services:
+  - name: "svc"
+    path_prefix: "/api"
+    target:
+      - "http://backend"
+    middlewares:
+      - type: rate_limit
+        rate: 0
+        burst: 10
+`,
+			wantErr:     true,
+			errContains: "rate_limit.rate must be greater than 0",
+		},
+		{
+			name: "Invalid rate_limit middleware: burst is zero",
+			yamlContent: `
+server:
+  port: 8080
+services:
+  - name: "svc"
+    path_prefix: "/api"
+    target:
+      - "http://backend"
+    middlewares:
+      - type: rate_limit
+        rate: 5
+        burst: 0
+`,
+			wantErr:     true,
+			errContains: "rate_limit.burst must be greater than 0",
+		},
+		{
+			name: "Unknown middleware type",
+			yamlContent: `
+server:
+  port: 8080
+services:
+  - name: "svc"
+    path_prefix: "/api"
+    target:
+      - "http://backend"
+    middlewares:
+      - type: unknown_mw
+`,
+			wantErr:     true,
+			errContains: "unknown middleware type",
+		},
 	}
 
 	for _, tt := range tests {
