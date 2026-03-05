@@ -1,4 +1,4 @@
-package proxy
+package balancer
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func TestRoundRobinDistribution(t *testing.T) {
 	target3, _ := url.Parse(testSchemeHTTP + "://" + testBackend3)
 	targets := []*url.URL{target1, target2, target3}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 	testCases := []struct {
 		expectedHost string
 	}{
@@ -61,7 +61,7 @@ func TestRoundRobinSingleTarget(t *testing.T) {
 	target, _ := url.Parse(testSchemeHTTPS + "://" + testBackendSingle)
 	targets := []*url.URL{target}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 
 	for range 5 {
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
@@ -80,7 +80,7 @@ func TestRoundRobinHTTPScheme(t *testing.T) {
 	target, _ := url.Parse(testSchemeHTTP + "://" + testBackendHTTP)
 	targets := []*url.URL{target}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
 	director(req)
 
@@ -99,7 +99,7 @@ func TestRoundRobinHTTPSScheme(t *testing.T) {
 	target, _ := url.Parse(testSchemeHTTPS + "://" + testBackendHTTPS)
 	targets := []*url.URL{target}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
 	director(req)
 
@@ -121,7 +121,7 @@ func TestRoundRobinInvalidScheme(t *testing.T) {
 	}
 	targets := []*url.URL{target}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
 
 	req.URL.Scheme = testSchemeHTTP
@@ -142,7 +142,7 @@ func TestRoundRobinMixedSchemes(t *testing.T) {
 	target2, _ := url.Parse(testSchemeHTTPS + "://" + testBackend2)
 	targets := []*url.URL{target1, target2}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 
 	req1, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, testOriginalURL, nil)
 	director(req1)
@@ -203,7 +203,7 @@ func TestRoundRobinPreservesPathAndQuery(t *testing.T) {
 	target, _ := url.Parse(testSchemeHTTP + "://backend.example.com")
 	targets := []*url.URL{target}
 
-	director := roundRobin(targets)
+	director := RoundRobin(targets)
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://original.com/api/v1/users?limit=10", nil)
 
 	originalPath := req.URL.Path

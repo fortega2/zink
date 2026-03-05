@@ -1,4 +1,4 @@
-package proxy
+package balancer
 
 import (
 	"fmt"
@@ -9,16 +9,20 @@ import (
 	"github.com/fortega2/zink/internal/config"
 )
 
+// NewDirector returns a Director function for use with httputil.ReverseProxy
+// based on the given load balancer type and target URLs.
 func NewDirector(lbType config.LoadBalancer, targets []*url.URL) (func(*http.Request), error) {
 	switch lbType {
 	case config.LoadBalancerRoundRobin:
-		return roundRobin(targets), nil
+		return RoundRobin(targets), nil
 	default:
 		return nil, fmt.Errorf("unknown load_balancer type %q for service", lbType)
 	}
 }
 
-func roundRobin(targets []*url.URL) func(*http.Request) {
+// RoundRobin returns a Director function that distributes requests across
+// targets using an atomic round-robin counter.
+func RoundRobin(targets []*url.URL) func(*http.Request) {
 	var current uint64
 
 	return func(req *http.Request) {

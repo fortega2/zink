@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fortega2/zink/internal/balancer"
 	"github.com/fortega2/zink/internal/config"
 	"github.com/fortega2/zink/internal/middleware"
 )
@@ -98,7 +99,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func createProxy(targets []*url.URL, lbType config.LoadBalancer) (http.Handler, error) {
-	director, err := NewDirector(lbType, targets)
+	director, err := balancer.NewDirector(lbType, targets)
 	if err != nil {
 		return nil, err
 	}
