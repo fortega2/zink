@@ -41,7 +41,10 @@ func NewRouter(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*R
 			return nil, fmt.Errorf("service '%s': %w", svc.Name, err)
 		}
 
-		svcHandler := applyServiceMiddlewares(ctx, proxyHandler, svc.Middlewares)
+		svcHandler, err := applyServiceMiddlewares(ctx, proxyHandler, svc.Middlewares, logger)
+		if err != nil {
+			return nil, fmt.Errorf("service '%s': %w", svc.Name, err)
+		}
 
 		exactPath := strings.TrimSuffix(svc.PathPrefix, "/")
 		prefixPath := exactPath + "/"
@@ -67,13 +70,23 @@ func parseServiceTargets(targetStrs []string, svcName string) ([]*url.URL, error
 	return targets, nil
 }
 
-func applyServiceMiddlewares(ctx context.Context, h http.Handler, mws []config.MiddlewareConfig) http.Handler {
+func applyServiceMiddlewares(ctx context.Context, h http.Handler, mws []config.MiddlewareConfig, logger *slog.Logger) (http.Handler, error) {
+	chain := make([]middleware.Middleware, 0, len(mws))
 	for _, mw := range mws {
-		if cfg, ok := mw.Value.(config.RateLimitMiddleware); ok {
-			h = middleware.Chain(h, middleware.RateLimit(ctx, cfg.Rate, cfg.Burst))
+		switch cfg := mw.Value.(type) {
+		case config.RateLimitMiddleware:
+			chain = append(chain, middleware.RateLimit(ctx, cfg.Rate, cfg.Burst))
+		case config.AuthMiddleware:
+			authMw, err := middleware.Auth(cfg)
+			if err != nil {
+				return nil, fmt.Errorf("auth middleware: %w", err)
+			}
+			chain = append(chain, authMw)
+		default:
+			logger.Warn("unknown middleware type, skipping", "type", fmt.Sprintf("%T", mw.Value))
 		}
 	}
-	return h
+	return middleware.Chain(h, chain...), nil
 }
 
 func (r *Router) Use(m ...middleware.Middleware) {

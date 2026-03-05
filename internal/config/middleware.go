@@ -10,6 +10,7 @@ type MiddlewareType string
 
 const (
 	MiddlewareRateLimit MiddlewareType = "rate_limit"
+	MiddlewareAuth      MiddlewareType = "auth"
 )
 
 type Middleware struct {
@@ -33,6 +34,12 @@ func (m *MiddlewareConfig) UnmarshalYAML(value *yaml.Node) error {
 			return fmt.Errorf("failed to decode rate_limit middleware: %w", err)
 		}
 		m.Value = rl
+	case MiddlewareAuth:
+		var auth AuthMiddleware
+		if err := value.Decode(&auth); err != nil {
+			return fmt.Errorf("failed to decode auth middleware: %w", err)
+		}
+		m.Value = auth
 	default:
 		return fmt.Errorf("unknown middleware type: %q", base.Type)
 	}

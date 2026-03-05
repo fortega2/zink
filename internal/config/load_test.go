@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const issuerExample = "https://issuer.example.com"
+
 func TestLoad(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -250,4 +252,89 @@ func TestLoadFileNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read config file")
 	assert.Nil(t, cfg)
+}
+
+func TestLoadAuthMiddlewareValidation(t *testing.T) {
+	baseYAML := func(publicKeyPath, issuer, audience string) string {
+		return "server:\n  port: 8080\nservices:\n  - name: \"svc\"\n    path_prefix: \"/api\"\n    target:\n      - \"http://backend\"\n    middlewares:\n      - type: auth\n        public_key_path: \"" + publicKeyPath + "\"\n        issuer: \"" + issuer + "\"\n        audience: \"" + audience + "\"\n"
+	}
+
+	writeConfig := func(t *testing.T, content string) string {
+		t.Helper()
+		dir := t.TempDir()
+		p := filepath.Join(dir, "config.yml")
+		require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+		return p
+	}
+
+	writePEM := func(t *testing.T) string {
+		t.Helper()
+		const testPublicKey = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA5ncNa0BaoG3G1T9E6rYC
+tQ88aS34BmhS050Uey5NXCjyDa+nInsV/kKR0DdZzsxKLPn8p60r3gXYnDJ0GME1
+DUjiWEU5VEyiPQWScT/MS52xYqeZPrgT3XyxWqMGkYsCm7FCUlyaS7MQdSaLTIby
+1xlT8bccajd/peQ3/LWql3yj8C2uy0Q3ulx0WCJsPNpZ7oIG49B4GvEMeeEh5++1
+wE4EXh2XW2+y00blNIGdqPA7A++C9Ht0JXZX04dm5P5RZDRRM73xshOBpTkRyfei
+HDXTbchKkKGEOr8i+uA2Omth0aoDwqJbO55LWS+Kohh+UW9pMHSPJ62KsutoIYMI
+7QIDAQAB
+-----END PUBLIC KEY-----
+`
+		dir := t.TempDir()
+		p := filepath.Join(dir, "public.pem")
+		require.NoError(t, os.WriteFile(p, []byte(testPublicKey), 0600))
+		return p
+	}
+
+	t.Run("missing public_key_path", func(t *testing.T) {
+		cfg, err := Load(writeConfig(t, baseYAML("", issuerExample, "zink")))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "auth.public_key_path is required")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("public_key_path file not found", func(t *testing.T) {
+		cfg, err := Load(writeConfig(t, baseYAML("/nonexistent/public.pem", issuerExample, "zink")))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "auth.public_key_path")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("public_key_path invalid PEM content", func(t *testing.T) {
+		dir := t.TempDir()
+		p := filepath.Join(dir, "bad.pem")
+		require.NoError(t, os.WriteFile(p, []byte("not-a-pem"), 0600))
+		cfg, err := Load(writeConfig(t, baseYAML(p, issuerExample, "zink")))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "auth.public_key_path is not a valid RSA public key PEM")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("missing issuer", func(t *testing.T) {
+		pemPath := writePEM(t)
+		cfg, err := Load(writeConfig(t, baseYAML(pemPath, "", "zink")))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "auth.issuer is required")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("missing audience", func(t *testing.T) {
+		pemPath := writePEM(t)
+		cfg, err := Load(writeConfig(t, baseYAML(pemPath, issuerExample, "")))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "auth.audience is required")
+		assert.Nil(t, cfg)
+	})
+
+	t.Run("valid auth middleware config", func(t *testing.T) {
+		pemPath := writePEM(t)
+		cfg, err := Load(writeConfig(t, baseYAML(pemPath, issuerExample, "zink")))
+		require.NoError(t, err)
+		require.NotNil(t, cfg)
+		require.Len(t, cfg.Services[0].Middlewares, 1)
+		auth, ok := cfg.Services[0].Middlewares[0].Value.(AuthMiddleware)
+		require.True(t, ok)
+		assert.Equal(t, pemPath, auth.PublicKeyPath)
+		assert.Equal(t, issuerExample, auth.Issuer)
+		assert.Equal(t, "zink", auth.Audience)
+	})
 }
