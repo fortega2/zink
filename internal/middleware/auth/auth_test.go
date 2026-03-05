@@ -1,4 +1,4 @@
-package middleware
+package auth
 
 import (
 	"crypto/rand"
@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/fortega2/zink/internal/config"
+	"github.com/fortega2/zink/internal/middleware"
 )
 
 const (
@@ -61,14 +62,14 @@ func validClaims() jwt.MapClaims {
 	}
 }
 
-func buildAuthMiddleware(t *testing.T, keyPath string) Middleware {
+func buildAuthMiddleware(t *testing.T, keyPath string) middleware.Middleware {
 	t.Helper()
 	cfg := config.AuthMiddleware{
 		PublicKeyPath: keyPath,
 		Issuer:        testIssuer,
 		Audience:      testAudience,
 	}
-	mw, err := Auth(cfg)
+	mw, err := New(cfg)
 	require.NoError(t, err)
 	return mw
 }
@@ -83,7 +84,7 @@ func TestAuthInvalidPEMFile(t *testing.T) {
 		Issuer:        testIssuer,
 		Audience:      testAudience,
 	}
-	_, err := Auth(cfg)
+	_, err := New(cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse public key")
 }

@@ -1,4 +1,4 @@
-package middleware
+package logging
 
 import (
 	"bufio"
@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/fortega2/zink/internal/middleware"
 )
 
 type responseWriter struct {
@@ -34,7 +36,9 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return h.Hijack()
 }
 
-func Logging(logger *slog.Logger) Middleware {
+// New returns a middleware that logs each request with method, path, status
+// code, duration in milliseconds, and client IP using structured logging.
+func New(logger *slog.Logger) middleware.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()

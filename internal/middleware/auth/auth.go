@@ -1,4 +1,4 @@
-package middleware
+package auth
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/fortega2/zink/internal/config"
+	"github.com/fortega2/zink/internal/middleware"
 )
 
 const (
@@ -20,9 +21,13 @@ const (
 	authHeaderParts    = 2
 )
 
+// ErrMissingToken is returned when the Authorization header is absent or malformed.
 var ErrMissingToken = errors.New("missing or malformed authorization header")
 
-func Auth(cfg config.AuthMiddleware) (Middleware, error) {
+// New returns a JWT RS256 authentication middleware configured from cfg.
+// It reads the RSA public key at construction time and validates Bearer tokens
+// on every request, enriching the request with X-User-ID and X-User-Email headers.
+func New(cfg config.AuthMiddleware) (middleware.Middleware, error) {
 	keyData, err := os.ReadFile(cfg.PublicKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("auth: failed to read public key: %w", err)

@@ -10,6 +10,8 @@ import (
 
 	"github.com/fortega2/zink/internal/config"
 	"github.com/fortega2/zink/internal/middleware"
+	"github.com/fortega2/zink/internal/middleware/auth"
+	"github.com/fortega2/zink/internal/middleware/ratelimit"
 )
 
 type Router struct {
@@ -71,9 +73,9 @@ func applyServiceMiddlewares(ctx context.Context, h http.Handler, mws []config.M
 	for _, mw := range mws {
 		switch cfg := mw.Value.(type) {
 		case config.RateLimitMiddleware:
-			chain = append(chain, middleware.RateLimit(ctx, cfg.Rate, cfg.Burst))
+			chain = append(chain, ratelimit.New(ctx, cfg.Rate, cfg.Burst))
 		case config.AuthMiddleware:
-			authMw, err := middleware.Auth(cfg)
+			authMw, err := auth.New(cfg)
 			if err != nil {
 				return nil, fmt.Errorf("auth middleware: %w", err)
 			}

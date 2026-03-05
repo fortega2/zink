@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/fortega2/zink/internal/config"
-	"github.com/fortega2/zink/internal/middleware"
+	"github.com/fortega2/zink/internal/middleware/logging"
 	"github.com/fortega2/zink/internal/proxy"
 	"github.com/fortega2/zink/internal/server"
 )
@@ -43,7 +43,7 @@ func main() {
 		return
 	}
 
-	router.Use(middleware.Logging(logger))
+	router.Use(logging.New(logger))
 
 	srvConfig := server.Config{
 		Host:         cfg.Server.Host,
