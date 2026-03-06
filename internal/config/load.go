@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultRedTimeout   = 15 * time.Second
+	defaultReadTimeout  = 15 * time.Second
 	defaultWriteTimeout = 15 * time.Second
 	defaultIdleTimeout  = 60 * time.Second
 )
@@ -34,7 +34,7 @@ func Load(filepath string) (*Config, error) {
 	}
 
 	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = defaultRedTimeout
+		cfg.Server.ReadTimeout = defaultReadTimeout
 	}
 	if cfg.Server.WriteTimeout == 0 {
 		cfg.Server.WriteTimeout = defaultWriteTimeout

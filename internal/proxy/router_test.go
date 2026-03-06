@@ -11,12 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fortega2/zink/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/fortega2/zink/internal/config"
+	"github.com/fortega2/zink/internal/middleware"
 )
 
 var logger = slog.New(slog.DiscardHandler)
+
+func emptyRegistry() *middleware.Registry { return middleware.NewRegistry() }
 
 func setupMockBackend(t *testing.T, name string) *httptest.Server {
 	t.Helper()
@@ -54,7 +58,7 @@ func TestRouterRouting(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.Background(), cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger, emptyRegistry())
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -132,7 +136,7 @@ func TestRouterRoundRobin(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.Background(), cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger, emptyRegistry())
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -176,7 +180,7 @@ func TestRouterInvalidTargetURL(t *testing.T) {
 		},
 	}
 
-	router, err := NewRouter(context.Background(), cfg, logger)
+	router, err := NewRouter(context.Background(), cfg, logger, emptyRegistry())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid target URL")
 	assert.Nil(t, router)

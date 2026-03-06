@@ -17,8 +17,12 @@ type Middleware struct {
 	Type MiddlewareType `yaml:"type"`
 }
 
+// MiddlewareConfig holds a decoded middleware value together with its type identifier.
+// TypeName is populated during YAML unmarshalling and can be used directly without
+// a type switch on Value.
 type MiddlewareConfig struct {
-	Value any
+	TypeName MiddlewareType
+	Value    any
 }
 
 func (m *MiddlewareConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -33,12 +37,14 @@ func (m *MiddlewareConfig) UnmarshalYAML(value *yaml.Node) error {
 		if err := value.Decode(&rl); err != nil {
 			return fmt.Errorf("failed to decode rate_limit middleware: %w", err)
 		}
+		m.TypeName = MiddlewareRateLimit
 		m.Value = rl
 	case MiddlewareAuth:
 		var auth AuthMiddleware
 		if err := value.Decode(&auth); err != nil {
 			return fmt.Errorf("failed to decode auth middleware: %w", err)
 		}
+		m.TypeName = MiddlewareAuth
 		m.Value = auth
 	default:
 		return fmt.Errorf("unknown middleware type: %q", base.Type)
