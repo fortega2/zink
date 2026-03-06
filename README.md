@@ -1,16 +1,19 @@
 # Zink
 
-Zink is a lightweight API Gateway written in Go (1.26+) that acts as a reverse proxy, configurable entirely via YAML.
+Zink is a lightweight API Gateway written in Go 1.26 that acts as a reverse proxy, configurable entirely via YAML.
 
 ## Features
 
-- **YAML Configuration**: Easily define server settings and routing rules in a single configuration file.
-- **Reverse Proxy**: Built on top of Go's robust `httputil.NewSingleHostReverseProxy`.
+- **YAML Configuration**: Define server settings, routing rules, and per-service middlewares in a single file.
+- **Reverse Proxy**: Built on top of Go's `httputil.ReverseProxy`.
 - **Prefix-Based Routing**: Match incoming requests by exact path prefixes and route them to specific backend services.
 - **Round-Robin Load Balancing**: Distribute traffic across multiple backend instances with atomic, lock-free round-robin selection.
-- **Structured Logging**: Includes standard structured logging using `log/slog`.
-- **Extensible Middleware**: Architecture designed to support custom middlewares (authentication, rate limiting, logging).
-- **Graceful Shutdown**: Handles SIGINT/SIGTERM signals, waiting up to 5 seconds for in-flight requests to complete.
+- **Per-Request Timeout**: Each proxied request is cancelled after 5 seconds; backends that do not respond receive a `502 Bad Gateway`.
+- **Middleware System**: Composable per-service middlewares with a `Registry`-based factory pattern. Built-in support for:
+  - **Logging**: Structured request/response logging via `log/slog` applied globally.
+  - **Authentication**: Static token-based auth (`middleware/auth`).
+  - **Rate Limiting**: Token-bucket rate limiter (`middleware/ratelimit`).
+- **Graceful Shutdown**: Handles SIGINT/SIGTERM, waiting up to 5 seconds for in-flight requests to complete.
 
 ## Prerequisites
 
@@ -23,7 +26,6 @@ Zink is a lightweight API Gateway written in Go (1.26+) that acts as a reverse p
 By default, Zink looks for a `zink.yml` configuration file in the current working directory.
 
 ```bash
-# Run the application (development)
 go run ./cmd/zink/main.go
 ```
 
@@ -60,13 +62,24 @@ services:
     path_prefix: "/api/v1/users"   # Requests with this prefix are routed here
     load_balancer: "round_robin"   # Optional; defaults to round_robin if omitted
     target:
-      - "http://localhost:8081"    # Backend instance 1
-      - "http://localhost:8082"    # Backend instance 2
+      - "http://localhost:8081"
+      - "http://localhost:8082"
+    middlewares:
+      - type: "rate_limit"
+        rate: 100          # requests per second
+        burst: 20
+      - type: "auth"
+        token: "secret"
 ```
 
-## Development
+### Middleware types
 
-The project uses several tools to ensure code quality:
+| `type`       | Fields              | Description                                      |
+|--------------|---------------------|--------------------------------------------------|
+| `rate_limit` | `rate`, `burst`     | Token-bucket limiter; returns `429` when exceeded |
+| `auth`       | `token`             | Static bearer-token check; returns `401` on mismatch |
+
+## Development
 
 ### Useful Commands
 
@@ -82,6 +95,9 @@ govulncheck ./...
 
 # Format code
 go fmt ./...
+
+# Verify static errors
+go vet ./...
 ```
 
 ### Pre-commit hooks
@@ -100,17 +116,21 @@ lefthook run pre-commit
 
 ```
 zink/
-├── cmd/zink/           # Application entry point
+├── cmd/zink/                   # Application entry point
 │   └── main.go
-├── docker/             # Container build files
-│   └── Dockerfile      # Multi-stage build (golang:1.26.0-alpine3.23 → scratch)
-├── internal/           # Private packages
-│   ├── config/         # YAML configuration loading and validation
-│   ├── middleware/     # Middlewares (logging; extensible for auth, rate limiting)
-│   ├── proxy/          # Reverse proxy logic and load balancing
-│   └── server/         # HTTP server with graceful shutdown
-├── zink.yml            # Example configuration file
-└── README.md           # This file
+├── docker/                     # Container build files
+│   └── Dockerfile              # Multi-stage build (golang:1.26.0-alpine3.23 → scratch)
+├── internal/
+│   ├── balancer/               # Round-robin load balancing director
+│   ├── config/                 # YAML loading, validation, and type definitions
+│   ├── middleware/             # Middleware type, Chain(), and Registry
+│   │   ├── auth/               # Static token authentication middleware
+│   │   ├── logging/            # Structured request logging middleware
+│   │   └── ratelimit/          # Token-bucket rate limiting middleware
+│   ├── proxy/                  # Reverse proxy handler and request router
+│   └── server/                 # HTTP server lifecycle and graceful shutdown
+├── zink.yml                    # Example configuration file
+└── README.md                   # This file
 ```
 
 ## Docker
@@ -127,4 +147,4 @@ docker run -v $(pwd)/zink.yml:/zink.yml zink --config=/zink.yml
 
 ## Contributing
 
-Please refer to the `AGENTS.md` file for project-specific conventions, code style guidelines, and detailed build/test instructions.
+Please refer to `AGENTS.md` for project-specific conventions, code style guidelines, and detailed build/test instructions.

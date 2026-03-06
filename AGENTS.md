@@ -1,6 +1,6 @@
 # Zink - AGENTS.md
 
-Zink is an API Gateway written in Go 1.25.6 that acts as a reverse proxy
+Zink is an API Gateway written in Go 1.26.0 that acts as a reverse proxy
 configurable via YAML. This document establishes the norms and conventions
 for developers (humans and agents) working on this project.
 
@@ -61,7 +61,7 @@ Pre-commit hooks run in parallel:
 
 ### General
 
-- Go version: 1.25.6 (use only features available up to this version)
+- Go version: 1.26.0 (use only features available up to this version)
 - Maximum lines per function: linter guideline (gocyclo: 15 recommended)
 - Maximum cyclomatic complexity: linter guideline (gocognit: 30)
 - Avoid files larger than 300 lines when possible
@@ -212,21 +212,38 @@ func TestLoad(t *testing.T) {
 
 ```
 zink/
-├── cmd/zink/           # Application entry point
+├── cmd/zink/                   # Application entry point
 │   └── main.go
-├── docker/             # Container build files
-│   └── Dockerfile      # Multi-stage build (golang:1.26.0-alpine3.23 → scratch)
-├── internal/           # Private packages (not externally importable)
-│   ├── config/         # YAML configuration loading and validation
-│   ├── middleware/     # Middlewares (logging; extensible for auth, rate limiting)
-│   ├── proxy/          # Reverse proxy logic and load balancing
-│   └── server/         # HTTP server lifecycle and graceful shutdown
-├── zink.yml           # Example configuration file
+├── docker/                     # Container build files
+│   └── Dockerfile              # Multi-stage build (golang:1.26.0-alpine3.23 → scratch)
+├── internal/                   # Private packages (not externally importable)
+│   ├── balancer/               # Round-robin load balancing director (NewDirector, RoundRobin)
+│   ├── config/                 # YAML loading, validation, and type definitions
+│   │   ├── load.go             # Load() + default constants
+│   │   ├── validate.go         # All validate*() functions
+│   │   ├── middleware.go       # MiddlewareConfig, MiddlewareType, UnmarshalYAML
+│   │   ├── auth.go             # AuthMiddleware
+│   │   ├── rate_limit.go       # RateLimitMiddleware
+│   │   ├── server.go           # ServerConfig
+│   │   ├── service.go          # ServiceConfig
+│   │   └── config.go           # Root Config type
+│   ├── middleware/             # Middleware type, Chain(), and Registry
+│   │   ├── middleware.go       # Middleware type + Chain()
+│   │   ├── registry.go         # Registry, Factory, Entry, NewRegistry(), Register(), Build()
+│   │   ├── auth/               # Static token authentication middleware
+│   │   ├── logging/            # Structured request/response logging middleware
+│   │   └── ratelimit/          # Token-bucket rate limiting middleware
+│   ├── proxy/                  # Reverse proxy handler and request router
+│   │   ├── proxy.go            # createProxy() + defaultTimeout (5s)
+│   │   └── router.go           # NewRouter(), applyServiceMiddlewares(), Use()
+│   └── server/                 # HTTP server lifecycle and graceful shutdown
+│       └── server.go
+├── zink.yml                    # Example configuration file
 ├── go.mod
 ├── go.sum
-├── .golangci.yml      # Linter configuration (golangci-lint v2)
-├── lefthook.yml       # Pre-commit hooks configuration
-└── AGENTS.md          # This file
+├── .golangci.yml               # Linter configuration (golangci-lint v2)
+├── lefthook.yml                # Pre-commit hooks configuration
+└── AGENTS.md                   # This file
 ```
 
 ## 4. Project-Specific Rules
@@ -245,7 +262,7 @@ zink/
 - Implement an `http.Handler` that acts as a router (multiplexer)
 - Route matching should be by exact prefix for this version
 - Round-robin load balancing is fully implemented. Configure with `load_balancer: round_robin` in each service. If omitted, the router defaults to `round_robin` and logs a warning. The field accepts the string `"round_robin"` (constant `config.LoadBalancerRoundRobin`)
-- Each proxied request is wrapped with a `context.WithTimeout` of 5 seconds (`defaultTimeout` constant in `proxy/router.go`). Backends that do not respond within this window receive a `502 Bad Gateway`
+- Each proxied request is wrapped with a `context.WithTimeout` of 5 seconds (`defaultTimeout` constant in `proxy/proxy.go`). Backends that do not respond within this window receive a `502 Bad Gateway`
 
 ### Server
 
@@ -255,8 +272,12 @@ zink/
 ### Middlewares
 
 - Implement using the standard pattern `func(http.Handler) http.Handler`
-- Include a structured logger (slog) by default in all requests
+- Include a structured logger (slog) by default in all requests (applied globally via `router.Use`)
 - Validate auth and rate limiting configuration at load time, not per request
+- Each middleware lives in its own sub-package under `internal/middleware/` (e.g. `auth`, `logging`, `ratelimit`)
+- Register middleware factories in `cmd/zink/main.go` using `middleware.Registry.Register()` at startup
+- `Registry.Build` returns an error for unregistered types — never silently skips them
+- `MiddlewareConfig.TypeName` is populated during YAML unmarshalling; no type switch on `Value` is needed outside of `config/`
 
 ### Docker
 
